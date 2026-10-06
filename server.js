@@ -165,7 +165,6 @@ async function showJoinPage(chatId) {
     ]);
 
     await bot.sendMessage(
-
         chatId,
 
         "🔒 *Access Locked*\n\n" +
@@ -173,15 +172,18 @@ async function showJoinPage(chatId) {
         "এই Bot-এর Access পেতে হলে " +
         "নিচের ৩টি Telegram Channel-এ Join করতে হবে।\n\n" +
 
-        "৩টি Channel-এই Join করার পর " +
+        "১️⃣ Channel 1\n" +
+        "২️⃣ Channel 2\n" +
+        "৩️⃣ Channel 3\n\n" +
+
+        "তিনটি Channel-এই Join করার পর " +
         "নিচের *Check Membership* button চাপুন।",
 
         {
             parse_mode: "Markdown",
 
             reply_markup: {
-                inline_keyboard:
-                    keyboard
+                inline_keyboard: keyboard
             }
         }
     );
@@ -189,11 +191,11 @@ async function showJoinPage(chatId) {
 
 
 // =====================================================
-// /START
+// /START COMMAND
 // =====================================================
 
 bot.onText(
-    /^\/start$/,
+    /^\/start(?:\s+.*)?$/,
 
     async (msg) => {
 
@@ -219,18 +221,16 @@ bot.onText(
             if (allJoined) {
 
                 await bot.sendMessage(
-
                     chatId,
 
                     "🎉 *Verified Successfully!*\n\n" +
 
                     "আপনি তিনটি Channel-এই Joined আছেন।\n\n" +
 
-                    "✅ Access Granted",
+                    "✅ *Access Granted*",
 
                     {
-                        parse_mode:
-                            "Markdown"
+                        parse_mode: "Markdown"
                     }
                 );
 
@@ -249,7 +249,6 @@ bot.onText(
             );
 
             await bot.sendMessage(
-
                 chatId,
 
                 "❌ Membership check করা যাচ্ছে না।\n" +
@@ -285,12 +284,9 @@ bot.on(
         try {
 
             await bot.answerCallbackQuery(
-
                 query.id,
-
                 {
-                    text:
-                        "Checking..."
+                    text: "Checking..."
                 }
             );
 
@@ -308,7 +304,6 @@ bot.on(
             if (allJoined) {
 
                 await bot.sendMessage(
-
                     chatId,
 
                     "🎉 *Verification Successful!*\n\n" +
@@ -319,8 +314,7 @@ bot.on(
                     "✅ *Access Granted*",
 
                     {
-                        parse_mode:
-                            "Markdown"
+                        parse_mode: "Markdown"
                     }
                 );
 
@@ -328,9 +322,12 @@ bot.on(
             }
 
 
+            // =================================================
+            // MEMBERSHIP STATUS
+            // =================================================
+
             let statusMessage =
                 "❌ *Membership Incomplete*\n\n";
-
 
             results.forEach(
                 (channel) => {
@@ -348,13 +345,96 @@ bot.on(
                 }
             );
 
-
             statusMessage +=
                 "\n⚠️ তিনটি Channel-এই Join করতে হবে।";
 
 
             await bot.sendMessage(
-
                 chatId,
 
                 statusMessage,
+
+                {
+                    parse_mode: "Markdown"
+                }
+            );
+
+
+            // Show Join buttons again
+            await showJoinPage(
+                chatId
+            );
+
+        } catch (error) {
+
+            console.error(
+                "CHECK MEMBERSHIP ERROR:",
+                error
+            );
+
+            await bot.sendMessage(
+                chatId,
+
+                "❌ Membership checking failed.\n" +
+                "আবার চেষ্টা করুন।"
+            );
+        }
+    }
+);
+
+
+// =====================================================
+// HOME ROUTE
+// =====================================================
+
+app.get(
+    "/",
+
+    (req, res) => {
+
+        res.send(
+            "Telegram Mandatory Join Bot is running ✅"
+        );
+    }
+);
+
+
+// =====================================================
+// HEALTH CHECK
+// =====================================================
+
+app.get(
+    "/health",
+
+    (req, res) => {
+
+        res.json({
+
+            status: "ok",
+
+            bot: "running",
+
+            channels:
+                CHANNELS.map(
+                    channel =>
+                        channel.username
+                )
+        });
+    }
+);
+
+
+// =====================================================
+// START SERVER
+// =====================================================
+
+app.listen(
+    PORT,
+
+    () => {
+
+        console.log(
+            `🌐 Server running on port ${PORT}`
+        );
+    }
+);
