@@ -16,15 +16,15 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNELS = [
     {
         username: "@glarybox",
-        name: "Channel 1"
+        name: "Telegram Channel 1"
     },
     {
         username: "@tripsgame",
-        name: "Channel 2"
+        name: "Telegram Channel 2"
     },
     {
         username: "@txviw",
-        name: "Channel 3"
+        name: "Telegram Channel 3"
     }
 ];
 
@@ -74,9 +74,9 @@ async function checkChannelMember(
             return false;
         }
 
-        const status =
-            member.status;
+        const status = member.status;
 
+        // Normal member
         if (
             status === "member" ||
             status === "administrator" ||
@@ -85,6 +85,7 @@ async function checkChannelMember(
             return true;
         }
 
+        // Restricted member
         if (
             status === "restricted" &&
             member.is_member === true
@@ -107,86 +108,199 @@ async function checkChannelMember(
 
 
 // =====================================================
-// CHECK ALL 3 CHANNELS
+// FIND FIRST CHANNEL THAT USER HAS NOT JOINED
 // =====================================================
 
-async function checkAllChannels(userId) {
+async function getCurrentStep(userId) {
 
-    const results = [];
-
-    for (const channel of CHANNELS) {
+    for (
+        let i = 0;
+        i < CHANNELS.length;
+        i++
+    ) {
 
         const joined =
             await checkChannelMember(
                 userId,
-                channel.username
+                CHANNELS[i].username
             );
 
-        results.push({
-            username: channel.username,
-            name: channel.name,
-            joined: joined
-        });
+        if (!joined) {
+
+            return {
+                completed: false,
+                index: i,
+                channel: CHANNELS[i]
+            };
+        }
     }
 
-    return results;
+    // All channels joined
+    return {
+        completed: true,
+        index: CHANNELS.length,
+        channel: null
+    };
 }
 
 
 // =====================================================
-// SHOW JOIN BUTTONS
+// SHOW ONLY CURRENT CHANNEL
 // =====================================================
 
-async function showJoinPage(chatId) {
+async function showCurrentChannel(
+    chatId,
+    userId
+) {
 
-    const keyboard = [];
+    try {
 
-    for (const channel of CHANNELS) {
+        const step =
+            await getCurrentStep(userId);
 
-        keyboard.push([
+
+        // =================================================
+        // ALL CHANNELS COMPLETED
+        // =================================================
+
+        if (step.completed) {
+
+            await bot.sendMessage(
+                chatId,
+
+                "🎉 *Verification Successful!*\n\n" +
+                "আপনি সবগুলো Telegram Channel-এ Join করেছেন।\n\n" +
+                "✅ *Access Granted*",
+
+                {
+                    parse_mode: "Markdown"
+                }
+            );
+
+            return;
+        }
+
+
+        // =================================================
+        // CURRENT CHANNEL
+        // =================================================
+
+        const channel =
+            step.channel;
+
+
+        // Channel number
+        const channelNumber =
+            step.index + 1;
+
+
+        // Join button
+        const keyboard = [
+
+            [
+                {
+                    text: `📢 Join Telegram Channel ${channelNumber}`,
+
+                    url:
+                        `https://t.me/${channel.username.replace("@", "")}`
+                }
+            ],
+
+            [
+                {
+                    text: "✅ Check Membership",
+
+                    callback_data:
+                        "CHECK_MEMBERSHIP"
+                }
+            ]
+
+        ];
+
+
+        let message = "";
+
+
+        // =================================================
+        // CHANNEL 1
+        // =================================================
+
+        if (step.index === 0) {
+
+            message =
+                "🔒 *Access Locked*\n\n" +
+
+                "আপনার প্রথমে Telegram Channel 1-এ Join করতে হবে।\n\n" +
+
+                "👇 নিচের Button-এ চাপ দিয়ে Channel 1-এ Join করুন।\n\n" +
+
+                "Join করার পর *Check Membership* চাপুন।";
+        }
+
+
+        // =================================================
+        // CHANNEL 2
+        // =================================================
+
+        else if (step.index === 1) {
+
+            message =
+                "✅ *Channel 1 Verified!*\n\n" +
+
+                "এখন আপনার পরবর্তী ধাপ হলো Telegram Channel 2।\n\n" +
+
+                "👇 আগে Telegram Channel 2-এ Join করুন।\n\n" +
+
+                "Channel 2 Join না করলে পরবর্তী Channel-এ যেতে পারবেন না।\n\n" +
+
+                "Join করার পর *Check Membership* চাপুন।";
+        }
+
+
+        // =================================================
+        // CHANNEL 3
+        // =================================================
+
+        else if (step.index === 2) {
+
+            message =
+                "✅ *Channel 1 Verified!*\n" +
+                "✅ *Channel 2 Verified!*\n\n" +
+
+                "🎯 এখন শেষ ধাপ।\n\n" +
+
+                "👇 Telegram Channel 3-এ Join করুন।\n\n" +
+
+                "Channel 3 Join করার পর *Check Membership* চাপুন।";
+        }
+
+
+        await bot.sendMessage(
+            chatId,
+            message,
             {
-                text:
-                    `📢 Join ${channel.name}`,
+                parse_mode: "Markdown",
 
-                url:
-                    `https://t.me/${channel.username.replace("@", "")}`
+                reply_markup: {
+                    inline_keyboard: keyboard
+                }
             }
-        ]);
+        );
+
+    } catch (error) {
+
+        console.error(
+            "SHOW CHANNEL ERROR:",
+            error
+        );
+
+        await bot.sendMessage(
+            chatId,
+
+            "❌ Membership check করা যাচ্ছে না।\n\n" +
+            "কিছুক্ষণ পরে আবার চেষ্টা করুন।"
+        );
     }
-
-    keyboard.push([
-        {
-            text:
-                "✅ Check Membership",
-
-            callback_data:
-                "CHECK_MEMBERSHIP"
-        }
-    ]);
-
-    await bot.sendMessage(
-        chatId,
-
-        "🔒 *Access Locked*\n\n" +
-
-        "এই Bot-এর Access পেতে হলে " +
-        "নিচের ৩টি Telegram Channel-এ Join করতে হবে।\n\n" +
-
-        "১️⃣ Channel 1\n" +
-        "২️⃣ Channel 2\n" +
-        "৩️⃣ Channel 3\n\n" +
-
-        "তিনটি Channel-এই Join করার পর " +
-        "নিচের *Check Membership* button চাপুন।",
-
-        {
-            parse_mode: "Markdown",
-
-            reply_markup: {
-                inline_keyboard: keyboard
-            }
-        }
-    );
 }
 
 
@@ -205,40 +319,12 @@ bot.onText(
         const userId =
             msg.from.id;
 
+
         try {
 
-            const results =
-                await checkAllChannels(
-                    userId
-                );
-
-            const allJoined =
-                results.every(
-                    channel =>
-                        channel.joined
-                );
-
-            if (allJoined) {
-
-                await bot.sendMessage(
-                    chatId,
-
-                    "🎉 *Verified Successfully!*\n\n" +
-
-                    "আপনি তিনটি Channel-এই Joined আছেন।\n\n" +
-
-                    "✅ *Access Granted*",
-
-                    {
-                        parse_mode: "Markdown"
-                    }
-                );
-
-                return;
-            }
-
-            await showJoinPage(
-                chatId
+            await showCurrentChannel(
+                chatId,
+                userId
             );
 
         } catch (error) {
@@ -251,8 +337,8 @@ bot.onText(
             await bot.sendMessage(
                 chatId,
 
-                "❌ Membership check করা যাচ্ছে না।\n" +
-                "কিছুক্ষণ পরে আবার চেষ্টা করুন।"
+                "❌ Something went wrong.\n" +
+                "আবার চেষ্টা করুন।"
             );
         }
     }
@@ -275,41 +361,44 @@ bot.on(
             return;
         }
 
+
         const userId =
             query.from.id;
 
         const chatId =
             query.message.chat.id;
 
+
         try {
 
+            // Loading text
             await bot.answerCallbackQuery(
                 query.id,
                 {
-                    text: "Checking..."
+                    text: "🔍 Checking Membership..."
                 }
             );
 
-            const results =
-                await checkAllChannels(
+
+            // Find current step
+            const step =
+                await getCurrentStep(
                     userId
                 );
 
-            const allJoined =
-                results.every(
-                    channel =>
-                        channel.joined
-                );
 
-            if (allJoined) {
+            // =================================================
+            // ALL COMPLETED
+            // =================================================
+
+            if (step.completed) {
 
                 await bot.sendMessage(
                     chatId,
 
                     "🎉 *Verification Successful!*\n\n" +
 
-                    "তিনটি Telegram Channel-এর " +
-                    "Membership successfully verified.\n\n" +
+                    "আপনি সবগুলো Telegram Channel-এ Join করেছেন।\n\n" +
 
                     "✅ *Access Granted*",
 
@@ -323,36 +412,63 @@ bot.on(
 
 
             // =================================================
-            // MEMBERSHIP STATUS
+            // CURRENT CHANNEL NOT JOINED
             // =================================================
 
-            let statusMessage =
-                "❌ *Membership Incomplete*\n\n";
+            const channel =
+                step.channel;
 
-            results.forEach(
-                (channel) => {
 
-                    if (channel.joined) {
+            const channelNumber =
+                step.index + 1;
 
-                        statusMessage +=
-                            `✅ ${channel.username} — Joined\n`;
 
-                    } else {
+            const joined =
+                await checkChannelMember(
+                    userId,
+                    channel.username
+                );
 
-                        statusMessage +=
-                            `❌ ${channel.username} — Not Joined\n`;
+
+            if (!joined) {
+
+                await bot.sendMessage(
+                    chatId,
+
+                    "❌ *Membership Not Found!*\n\n" +
+
+                    `আপনি এখনো Telegram Channel ${channelNumber}-এ Join করেননি।\n\n` +
+
+                    `⚠️ আগে Telegram Channel ${channelNumber}-এ Join করুন।\n\n` +
+
+                    "তারপর আবার *Check Membership* চাপুন।",
+
+                    {
+                        parse_mode: "Markdown"
                     }
-                }
-            );
+                );
 
-            statusMessage +=
-                "\n⚠️ তিনটি Channel-এই Join করতে হবে।";
 
+                // Show same channel again
+                await showCurrentChannel(
+                    chatId,
+                    userId
+                );
+
+                return;
+            }
+
+
+            // =================================================
+            // CURRENT CHANNEL VERIFIED
+            // =================================================
 
             await bot.sendMessage(
                 chatId,
 
-                statusMessage,
+                `✅ *Telegram Channel ${channelNumber} Verified!*\n\n` +
+
+                "Membership successfully verified.",
 
                 {
                     parse_mode: "Markdown"
@@ -360,9 +476,13 @@ bot.on(
             );
 
 
-            // Show Join buttons again
-            await showJoinPage(
-                chatId
+            // =================================================
+            // SHOW NEXT CHANNEL
+            // =================================================
+
+            await showCurrentChannel(
+                chatId,
+                userId
             );
 
         } catch (error) {
@@ -372,10 +492,11 @@ bot.on(
                 error
             );
 
+
             await bot.sendMessage(
                 chatId,
 
-                "❌ Membership checking failed.\n" +
+                "❌ Membership checking failed.\n\n" +
                 "আবার চেষ্টা করুন।"
             );
         }
@@ -389,7 +510,6 @@ bot.on(
 
 app.get(
     "/",
-
     (req, res) => {
 
         res.send(
@@ -405,7 +525,6 @@ app.get(
 
 app.get(
     "/health",
-
     (req, res) => {
 
         res.json({
@@ -414,11 +533,10 @@ app.get(
 
             bot: "running",
 
-            channels:
-                CHANNELS.map(
-                    channel =>
-                        channel.username
-                )
+            channels: CHANNELS.map(
+                channel =>
+                    channel.username
+            )
         });
     }
 );
@@ -430,11 +548,11 @@ app.get(
 
 app.listen(
     PORT,
-
     () => {
 
         console.log(
             `🌐 Server running on port ${PORT}`
         );
+
     }
 );
